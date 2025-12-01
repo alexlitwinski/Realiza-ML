@@ -20,10 +20,14 @@ class Realiza_ML_API
             'code_verifier' => $code_verifier,
         );
 
+        error_log('Realiza ML Debug - Exchange Code Body: ' . print_r($body, true));
+
         $response = wp_remote_post($this->api_base . '/oauth/token', array(
             'body' => $body,
             'timeout' => 45,
         ));
+
+        error_log('Realiza ML Debug - Exchange Code Response: ' . print_r($response, true));
 
         if (is_wp_error($response)) {
             return $response;
