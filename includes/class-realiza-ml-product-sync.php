@@ -190,7 +190,8 @@ class Realiza_ML_Product_Sync
             $update_data = array(
                 'price' => $data['price'],
                 'available_quantity' => $data['available_quantity'],
-                'title' => $data['title']
+                'title' => $data['title'],
+                'attributes' => $data['attributes']
             );
 
             $response = $this->api->post('/items/' . $ml_id, $update_data, 'PUT'); // Assuming API class handles method or we need to adjust it
@@ -208,7 +209,30 @@ class Realiza_ML_Product_Sync
             update_post_meta($product_id, '_realiza_ml_last_sync', current_time('mysql'));
             return true;
         } else {
-            return new WP_Error('api_error', 'Erro na API: ' . json_encode($response));
+            return new WP_Error( 'api_error', $this->format_error_message( $response ) );
         }
+    }
+
+    private function format_error_message( $response ) {
+        if ( isset( $response['message'] ) && $response['message'] === 'Validation error' && isset( $response['cause'] ) ) {
+            $messages = array();
+            foreach ( $response['cause'] as $cause ) {
+                if ( isset( $cause['message'] ) ) {
+                    // Translate common messages if needed, or just show them
+                    $msg = $cause['message'];
+                    if ( strpos( $msg, 'The attributes [MODEL, BRAND] are required' ) !== false ) {
+                        $msg = 'Os atributos Marca e Modelo são obrigatórios para esta categoria.';
+                    }
+                    $messages[] = $msg;
+                }
+            }
+            return 'Erro de validação: ' . implode( ' ', $messages );
+        }
+        
+        if ( isset( $response['message'] ) ) {
+            return 'Erro na API: ' . $response['message'];
+        }
+
+        return 'Erro desconhecido na API: ' . json_encode( $response );
     }
 }
