@@ -5,7 +5,7 @@ class Realiza_ML_API
 
     private $api_base = 'https://api.mercadolibre.com';
 
-    public function exchange_code($code)
+    public function exchange_code($code, $code_verifier)
     {
         $app_id = get_option('realiza_ml_app_id');
         $secret_key = get_option('realiza_ml_secret_key');
@@ -17,6 +17,7 @@ class Realiza_ML_API
             'client_secret' => $secret_key,
             'code' => $code,
             'redirect_uri' => $redirect_uri,
+            'code_verifier' => $code_verifier,
         );
 
         $response = wp_remote_post($this->api_base . '/oauth/token', array(

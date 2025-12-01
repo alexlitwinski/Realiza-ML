@@ -4,73 +4,123 @@
  * The admin-specific functionality of the plugin.
  */
 
-class Realiza_ML_Admin {
+class Realiza_ML_Admin
+{
 
-	private $plugin_name;
-	private $version;
+    private $plugin_name;
+    private $version;
     private $api;
 
-	public function __construct( $plugin_name, $version ) {
+    public function __construct($plugin_name, $version)
+    {
 
-		$this->plugin_name = $plugin_name;
-		$this->version = $version;
+        $this->plugin_name = $plugin_name;
+        $this->version = $version;
 
-        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-realiza-ml-api.php';
+        require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-realiza-ml-api.php';
         $this->api = new Realiza_ML_API();
 
-	}
+    }
 
-	public function enqueue_styles() {
-		// wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/realiza-ml-admin.css', array(), $this->version, 'all' );
-	}
+    public function enqueue_styles()
+    {
+        // wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/realiza-ml-admin.css', array(), $this->version, 'all' );
+    }
 
-	public function enqueue_scripts() {
-		// wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/realiza-ml-admin.js', array( 'jquery' ), $this->version, false );
-	}
+    public function enqueue_scripts()
+    {
+        // wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/realiza-ml-admin.js', array( 'jquery' ), $this->version, false );
+    }
 
-    public function add_plugin_admin_menu() {
+    public function add_plugin_admin_menu()
+    {
         add_menu_page(
-            'Realiza ML', 
-            'Realiza ML', 
-            'manage_options', 
-            'realiza-ml', 
-            array( $this, 'display_plugin_setup_page' ),
+            'Realiza ML',
+            'Realiza ML',
+            'manage_options',
+            'realiza-ml',
+            array($this, 'display_plugin_setup_page'),
             'dashicons-cart',
             56
         );
     }
 
-    public function register_settings() {
-        register_setting( 'realiza_ml_options', 'realiza_ml_app_id' );
-        register_setting( 'realiza_ml_options', 'realiza_ml_secret_key' );
-        register_setting( 'realiza_ml_options', 'realiza_ml_access_token' );
-        register_setting( 'realiza_ml_options', 'realiza_ml_refresh_token' );
-        register_setting( 'realiza_ml_options', 'realiza_ml_expires_in' );
-        register_setting( 'realiza_ml_options', 'realiza_ml_user_id' );
+    public function register_settings()
+    {
+        register_setting('realiza_ml_options', 'realiza_ml_app_id');
+        register_setting('realiza_ml_options', 'realiza_ml_secret_key');
+        register_setting('realiza_ml_options', 'realiza_ml_access_token');
+        register_setting('realiza_ml_options', 'realiza_ml_refresh_token');
+        register_setting('realiza_ml_options', 'realiza_ml_expires_in');
+        register_setting('realiza_ml_options', 'realiza_ml_user_id');
     }
 
-    public function display_plugin_setup_page() {
+    public function display_plugin_setup_page()
+    {
         // Check for OAuth return
-        if ( isset( $_GET['code'] ) && isset( $_GET['page'] ) && $_GET['page'] === 'realiza-ml' ) {
-            $this->handle_oauth_callback( $_GET['code'] );
+        if (isset($_GET['code']) && isset($_GET['page']) && $_GET['page'] === 'realiza-ml') {
+            $this->handle_oauth_callback($_GET['code']);
         }
 
         include_once 'partials/realiza-ml-admin-display.php';
     }
 
-    private function handle_oauth_callback( $code ) {
-        $response = $this->api->exchange_code( $code );
-        
-        if ( is_wp_error( $response ) ) {
-            add_settings_error( 'realiza_ml_messages', 'realiza_ml_message', 'Erro ao conectar com Mercado Livre: ' . $response->get_error_message(), 'error' );
-        } else {
-            update_option( 'realiza_ml_access_token', $response['access_token'] );
-            update_option( 'realiza_ml_refresh_token', $response['refresh_token'] );
-            update_option( 'realiza_ml_expires_in', time() + $response['expires_in'] );
-            update_option( 'realiza_ml_user_id', $response['user_id'] );
-            
-            add_settings_error( 'realiza_ml_messages', 'realiza_ml_message', 'Conectado com sucesso ao Mercado Livre!', 'updated' );
+    public function get_auth_url()
+    {
+        $app_id = get_option('realiza_ml_app_id');
+        $redirect_uri = admin_url('admin.php?page=realiza-ml');
+
+        // Generate PKCE values
+        $verifier = $this->generate_code_verifier();
+        $challenge = $this->generate_code_challenge($verifier);
+
+        // Store verifier for callback (valid for 10 minutes)
+        set_transient('realiza_ml_verifier_' . get_current_user_id(), $verifier, 600);
+
+        $auth_url = "https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={$app_id}&redirect_uri={$redirect_uri}&code_challenge={$challenge}&code_challenge_method=S256";
+
+        return $auth_url;
+    }
+
+    private function handle_oauth_callback($code)
+    {
+        $verifier = get_transient('realiza_ml_verifier_' . get_current_user_id());
+
+        if (!$verifier) {
+            add_settings_error('realiza_ml_messages', 'realiza_ml_message', 'Erro: Verificador de código expirou ou é inválido. Tente novamente.', 'error');
+            return;
         }
+
+        // Delete transient after use
+        delete_transient('realiza_ml_verifier_' . get_current_user_id());
+
+        $response = $this->api->exchange_code($code, $verifier);
+
+        if (is_wp_error($response)) {
+            add_settings_error('realiza_ml_messages', 'realiza_ml_message', 'Erro ao conectar com Mercado Livre: ' . $response->get_error_message(), 'error');
+        } else {
+            update_option('realiza_ml_access_token', $response['access_token']);
+            update_option('realiza_ml_refresh_token', $response['refresh_token']);
+            update_option('realiza_ml_expires_in', time() + $response['expires_in']);
+            update_option('realiza_ml_user_id', $response['user_id']);
+
+            add_settings_error('realiza_ml_messages', 'realiza_ml_message', 'Conectado com sucesso ao Mercado Livre!', 'updated');
+        }
+    }
+
+    private function generate_code_verifier()
+    {
+        return $this->base64url_encode(random_bytes(32));
+    }
+
+    private function generate_code_challenge($verifier)
+    {
+        return $this->base64url_encode(hash('sha256', $verifier, true));
+    }
+
+    private function base64url_encode($data)
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 
 }
