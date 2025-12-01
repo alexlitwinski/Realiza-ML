@@ -20,6 +20,7 @@ class Realiza_ML_Admin
         require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-realiza-ml-api.php';
         $this->api = new Realiza_ML_API();
 
+        add_action('wp_ajax_realiza_ml_get_categories', array($this, 'ajax_get_ml_categories'));
     }
 
     public function enqueue_styles()
@@ -53,6 +54,7 @@ class Realiza_ML_Admin
         register_setting('realiza_ml_options', 'realiza_ml_refresh_token');
         register_setting('realiza_ml_options', 'realiza_ml_expires_in');
         register_setting('realiza_ml_options', 'realiza_ml_user_id');
+        register_setting('realiza_ml_category_mappings', 'realiza_ml_category_mappings');
     }
 
     public function display_plugin_setup_page()
@@ -62,7 +64,45 @@ class Realiza_ML_Admin
             $this->handle_oauth_callback($_GET['code']);
         }
 
-        include_once 'partials/realiza-ml-admin-display.php';
+        $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'settings';
+
+        echo '<div class="wrap">';
+        echo '<h1>Realiza ML</h1>';
+        echo '<h2 class="nav-tab-wrapper">';
+        echo '<a href="?page=realiza-ml&tab=settings" class="nav-tab ' . ($active_tab == 'settings' ? 'nav-tab-active' : '') . '">Configurações</a>';
+        echo '<a href="?page=realiza-ml&tab=mapping" class="nav-tab ' . ($active_tab == 'mapping' ? 'nav-tab-active' : '') . '">Mapeamento de Categorias</a>';
+        echo '</h2>';
+
+        if ($active_tab == 'mapping') {
+            include_once 'partials/realiza-ml-admin-mapping.php';
+        } else {
+            include_once 'partials/realiza-ml-admin-display.php';
+        }
+
+        echo '</div>';
+    }
+
+    public function ajax_get_ml_categories()
+    {
+        $category_id = isset($_POST['category_id']) ? sanitize_text_field($_POST['category_id']) : 'MLB';
+
+        if ($category_id === 'MLB') {
+            $response = $this->api->get('/sites/MLB/categories');
+        } else {
+            $response = $this->api->get('/categories/' . $category_id);
+        }
+
+        if (is_wp_error($response)) {
+            wp_send_json_error($response->get_error_message());
+        }
+
+        // If it's a specific category detail, the children are in 'children_categories'
+        if (isset($response['children_categories'])) {
+            wp_send_json_success($response['children_categories']);
+        } else {
+            // Root categories list
+            wp_send_json_success($response);
+        }
     }
 
     public function get_auth_url()
