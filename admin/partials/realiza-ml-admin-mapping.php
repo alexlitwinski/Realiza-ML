@@ -2,6 +2,7 @@
     <h1>Mapeamento de Categorias</h1>
 
     <form method="post" action="options.php">
+        <?php settings_fields('realiza_ml_category_mappings'); ?>
         <?php
         // We will store mappings in a single option array for simplicity
         // Option name: realiza_ml_category_mappings
@@ -61,7 +62,7 @@
             </tbody>
         </table>
 
-        <?php settings_fields('realiza_ml_category_mappings'); ?>
+
 
 
         <?php submit_button('Salvar Mapeamento'); ?>
