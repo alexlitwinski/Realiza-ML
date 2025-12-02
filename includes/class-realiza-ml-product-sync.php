@@ -17,6 +17,14 @@ class Realiza_ML_Product_Sync
         add_action('save_post', array($this, 'save_meta_box'));
         add_action('wp_ajax_realiza_ml_sync_product', array($this, 'sync_product_ajax'));
         add_action('wp_ajax_realiza_ml_get_category_attributes', array($this, 'ajax_get_category_attributes'));
+
+        // Auto-sync on update
+        add_action('woocommerce_update_product', array($this, 'auto_sync_product'), 10, 1);
+
+        // Bulk Actions
+        add_filter('bulk_actions-edit-product', array($this, 'register_bulk_action'));
+        add_filter('handle_bulk_actions-edit-product', array($this, 'handle_bulk_action'), 10, 3);
+        add_action('admin_notices', array($this, 'bulk_action_admin_notice'));
     }
 
     public function add_meta_box()
@@ -419,5 +427,67 @@ class Realiza_ML_Product_Sync
         }
 
         return 'Erro desconhecido na API: ' . json_encode($response);
+    }
+    public function auto_sync_product($product_id)
+    {
+        // Check if it's an autosave or revision
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            return;
+        }
+
+        // Check if product is already synced
+        $ml_id = get_post_meta($product_id, '_realiza_ml_id', true);
+        if ($ml_id) {
+            $this->sync_product($product_id);
+        }
+    }
+
+    public function register_bulk_action($bulk_actions)
+    {
+        $bulk_actions['realiza_ml_sync_bulk'] = 'Sincronizar com Mercado Livre';
+        return $bulk_actions;
+    }
+
+    public function handle_bulk_action($redirect_to, $action, $post_ids)
+    {
+        if ($action !== 'realiza_ml_sync_bulk') {
+            return $redirect_to;
+        }
+
+        $processed = 0;
+        $errors = 0;
+
+        foreach ($post_ids as $post_id) {
+            $result = $this->sync_product($post_id);
+            if (is_wp_error($result)) {
+                $errors++;
+            } else {
+                $processed++;
+            }
+        }
+
+        return add_query_arg(
+            array(
+                'realiza_ml_bulk_sync_processed' => $processed,
+                'realiza_ml_bulk_sync_errors' => $errors
+            ),
+            $redirect_to
+        );
+    }
+
+    public function bulk_action_admin_notice()
+    {
+        if (!empty($_REQUEST['realiza_ml_bulk_sync_processed'])) {
+            $processed = intval($_REQUEST['realiza_ml_bulk_sync_processed']);
+            $errors = intval($_REQUEST['realiza_ml_bulk_sync_errors']);
+
+            $message = sprintf(
+                'Sincronização em massa concluída. Sucesso: %d. Erros: %d.',
+                $processed,
+                $errors
+            );
+
+            echo '<div id="message" class="updated notice is-dismissible"><p>' . esc_html($message) . '</p></div>';
+        }
     }
 }
