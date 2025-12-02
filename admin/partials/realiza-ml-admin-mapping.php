@@ -61,8 +61,8 @@
             </tbody>
         </table>
 
-        <input type="hidden" name="action" value="update" />
-        <input type="hidden" name="page_options" value="realiza_ml_category_mappings" />
+        <?php settings_fields('realiza_ml_category_mappings'); ?>
+
 
         <?php submit_button('Salvar Mapeamento'); ?>
     </form>
