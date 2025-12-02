@@ -3,7 +3,7 @@
  * Plugin Name: Realiza - ML
  * Plugin URI:  https://github.com/alexa/realiza-ml
  * Description: Integração WooCommerce com Mercado Livre.
- * Version:     1.0.0
+ * Version:     1.0.1
  * Author:      Realiza Software
  * Author URI:  https://github.com/alexa
  * License:     GPL-2.0+
