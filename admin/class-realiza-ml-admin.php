@@ -69,8 +69,8 @@ class Realiza_ML_Admin
         echo '<div class="wrap">';
         echo '<h1>Realiza ML</h1>';
         echo '<h2 class="nav-tab-wrapper">';
-        echo '<a href="?page=realiza-ml&tab=settings" class="nav-tab ' . ($active_tab == 'settings' ? 'nav-tab-active' : '') . '">Configurações</a>';
-        echo '<a href="?page=realiza-ml&tab=mapping" class="nav-tab ' . ($active_tab == 'mapping' ? 'nav-tab-active' : '') . '">Mapeamento de Categorias</a>';
+        echo '<a href="' . admin_url('admin.php?page=realiza-ml&tab=settings') . '" class="nav-tab ' . ($active_tab == 'settings' ? 'nav-tab-active' : '') . '">Configurações</a>';
+        echo '<a href="' . admin_url('admin.php?page=realiza-ml&tab=mapping') . '" class="nav-tab ' . ($active_tab == 'mapping' ? 'nav-tab-active' : '') . '">Mapeamento de Categorias</a>';
         echo '</h2>';
 
         if ($active_tab == 'mapping') {
